@@ -10,19 +10,14 @@
 unsigned long FILE_SIZE = 2715763;
 
 char* board = "serspatglinesers";
-struct Word* baseWord;
-struct Word* currWord;
-int wordCount = 0;
+struct Node* baseNode;
+//int wordCount = 0;
 
 struct Node {
     long value; // the number of words that that are farther down this branch
+    char found;
     char word[MAX_STR_LEN]; // the word that ends on this node
     struct Node* childNodes[26];
-};
-
-struct Word {
-    char value[MAX_STR_LEN];
-    struct Word* next;
 };
 
 double getTimeDiff(struct timeval start, struct timeval end) {
@@ -35,32 +30,6 @@ void free_all_trie(struct Node* node) {
         free_all_trie(node->childNodes[i]);
     }
     free(node);
-}
-
-void free_all_word(struct Word* node) {
-    if(node == NULL) return;
-    free_all_word(node->next);
-    free(node);
-}
-
-void delete_duplicate_words() {
-    struct Word *outer, *inner, *tmp;
-    outer = baseWord;
-
-    while (outer != NULL && outer->next != NULL) {
-        inner = outer;
-        while (inner->next != NULL) {
-            if (!strcmp(outer->value, inner->next->value)) {
-                tmp = inner->next;
-                inner->next = inner->next->next;
-                free(tmp);
-                wordCount--;
-            } else {
-                inner = inner->next;
-            }
-        }
-        outer = outer->next;
-    }
 }
 
 char* getWordList(char* fileName) {
@@ -158,12 +127,12 @@ void search(int hist[], int histLastPos, struct Node* node) {
             if (next != NULL) {
                 hist[histLastPos + 1] = pos;
                 if (next->word[0] != 0) {
-                    struct Word* nextWord = malloc(sizeof(struct Word));
-                    memset(nextWord, 0, sizeof(struct Word));
-                    strcpy(nextWord->value, next->word);
-                    currWord->next = nextWord;
-                    currWord = nextWord;
-                    wordCount++;
+                    struct Node* temp;
+                    temp = baseNode;
+                    for (int j = 0; j < strlen(next->word); j++) {
+                        temp = temp->childNodes[next->word[j] - 'a'];
+                    }
+                    temp->found = 1;
                 }
                 if (next->value > 0) {
                     int histCopy[MAX_STR_LEN - 1];
@@ -175,22 +144,12 @@ void search(int hist[], int histLastPos, struct Node* node) {
     }
 }
 
-void printWords() {
-    currWord = baseWord;
-    while(currWord != NULL) {
-        printf("%s\n", currWord->value);
-        currWord = currWord->next;
-    }
-}
-
 int main() {
     struct timeval startProg, endProcess, endSearch, endProg;
 
     gettimeofday(&startProg, NULL);
     char* wordlist = getWordList("wordlist.txt");
-    struct Node* baseNode = malloc(sizeof(struct Node));
-    baseWord = malloc(sizeof(struct Word));
-    currWord = baseWord;
+    baseNode = malloc(sizeof(struct Node));
     memset(baseNode, 0, sizeof(struct Node));
     long wordStart = 0;
     int state = OUT_WORD;
@@ -233,16 +192,9 @@ int main() {
     }
     gettimeofday(&endSearch, NULL);
 
-    delete_duplicate_words();
-    gettimeofday(&endProg, NULL);
-
-    printf("Found %d words\n", wordCount);
     printf("Pre-processing time: %f ms\n", getTimeDiff(startProg, endProcess));
     printf("Search time: %f ms\n", getTimeDiff(endProcess, endSearch));
-    printf("Full time: %f ms\n", getTimeDiff(endProcess, endProg));
     free(wordlist); // word count: 259,709
     free_all_trie(baseNode);
-    currWord = 0;
-    free_all_word(baseWord);
     return 0;
 }
